@@ -233,7 +233,7 @@ func fillNilContainer(ctr *containers.Container) *containers.Container {
 		ctr.Network = util.NullContainerRates.Network
 	}
 	if ctr.Memory == nil {
-		ctr.Memory = &metrics.CgroupMemStat{}
+		ctr.Memory = &metrics.ContainerMemStats{}
 	}
 	return ctr
 }

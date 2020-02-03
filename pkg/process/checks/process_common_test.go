@@ -22,9 +22,9 @@ import (
 func makeContainer(id string) *containers.Container {
 	return &containers.Container{
 		ID:     id,
-		CPU:    &metrics.CgroupTimesStat{},
-		Memory: &metrics.CgroupMemStat{},
-		IO:     &metrics.CgroupIOStat{},
+		CPU:    &metrics.ContainerCPUStats{},
+		Memory: &metrics.ContainerMemStats{},
+		IO:     &metrics.ContainerIOStats{},
 	}
 }
 

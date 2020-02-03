@@ -92,12 +92,12 @@ func TestContainerNils(t *testing.T) {
 	cur = []*containers.Container{
 		{
 			ID:  "1",
-			CPU: &metrics.CgroupTimesStat{},
+			CPU: &metrics.ContainerCPUStats{},
 		},
 	}
 	last = map[string]util.ContainerRateMetrics{
 		"1": {
-			CPU: &metrics.CgroupTimesStat{},
+			CPU: &metrics.ContainerCPUStats{},
 		},
 	}
 	chunkContainers(cur, last, time.Now(), 10, 10)
