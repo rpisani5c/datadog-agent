@@ -53,14 +53,64 @@ func testSpan(spanID uint64, parentID uint64, duration, offset int64, name, serv
 	}
 }
 
-// countsEq is a test utility function to assert expected == actual for count aggregations.
-func countsEq(assert *assert.Assertions, expected map[string]float64, actual map[string]Count) {
+// countValsEq is a test utility function to assert expected == actual for count aggregations.
+func countValsEq(t *testing.T, expected map[string]float64, actual map[string]Count) {
+	assert := assert.New(t)
 	assert.Equal(len(expected), len(actual))
 	for key, val := range expected {
 		count, ok := actual[key]
 		assert.True(ok, "Missing expected key from actual counts: %s", key)
 		assert.Equal(val, count.Value)
 	}
+}
+
+func TestCountValsEq(t *testing.T) {
+	expected := map[string]float64{
+		"query|duration|env:staging,service:myservice,resource:resource1": 450.0,
+		"query|hits|env:staging,service:myservice,resource:resource1":     1.0,
+		"query|errors|env:staging,service:myservice,resource:resource1":   0.0,
+	}
+	ts := TagSet{
+		Tag{
+			Name:  "env",
+			Value: "staging",
+		},
+		Tag{
+			Name:  "service",
+			Value: "myservice",
+		},
+		Tag{
+			Name:  "resource",
+			Value: "resource1",
+		},
+	}
+	actual := map[string]Count{
+		"query|duration|env:staging,service:myservice,resource:myresource": Count{
+			Key:      "query|hits|env:staging,service:myservice,resource:myresource",
+			Name:     "query",
+			Measure:  "hits",
+			TagSet:   ts,
+			TopLevel: 1.0,
+			Value:    450.0,
+		},
+		"query|hits|env:staging,service:myservice,resource:myresource": Count{
+			Key:      "query|hits|env:staging,service:myservice,resource:myresource",
+			Name:     "query",
+			Measure:  "hits",
+			TagSet:   ts,
+			TopLevel: 1.0,
+			Value:    1.0,
+		},
+		"query|errors|env:staging,service:myservice,resource:myresource": Count{
+			Key:      "query|hits|env:staging,service:myservice,resource:myresource",
+			Name:     "query",
+			Measure:  "hits",
+			TagSet:   ts,
+			TopLevel: 1.0,
+			Value:    1.0,
+		},
+	}
+	countValsEq(t, expected, actual)
 }
 
 // TestConcentratorOldestTs tests that the Agent doesn't report time buckets from a
@@ -126,7 +176,7 @@ func TestConcentratorOldestTs(t *testing.T) {
 			"nested_op|hits|env:none,resource:resource1,service:A1":           2,
 			"nested_op|errors|env:none,resource:resource1,service:A1":         1,
 		}
-		countsEq(assert, expected, stats[0].Counts)
+		countValsEq(t, expected, stats[0].Counts)
 	})
 
 	t.Run("hot", func(t *testing.T) {
@@ -156,7 +206,7 @@ func TestConcentratorOldestTs(t *testing.T) {
 			"query|hits|env:none,resource:resource1,service:A1":     5,
 			"query|errors|env:none,resource:resource1,service:A1":   0,
 		}
-		countsEq(assert, expected, stats[0].Counts)
+		countValsEq(t, expected, stats[0].Counts)
 
 		stats = c.flushNow(flushTime)
 		if !assert.Equal(1, len(stats), "We should get exactly 1 Bucket") {
@@ -175,7 +225,7 @@ func TestConcentratorOldestTs(t *testing.T) {
 			"nested_op|hits|env:none,resource:resource1,service:A1":           2,
 			"nested_op|errors|env:none,resource:resource1,service:A1":         1,
 		}
-		countsEq(assert, expected, stats[0].Counts)
+		countValsEq(t, expected, stats[0].Counts)
 	})
 }
 
@@ -364,7 +414,7 @@ func TestConcentratorStatsCounts(t *testing.T) {
 			expectedCountValByKey := expectedCountValByKeyByTime[expectedFlushedTs]
 			receivedCounts := receivedBuckets[0].Counts
 
-			countsEq(assert, expectedCountValByKey, receivedCounts)
+			countValsEq(t, expectedCountValByKey, receivedCounts)
 
 			// Flushing again at the same time should return nothing
 			stats = c.flushNow(flushTime)
@@ -466,11 +516,10 @@ func TestConcentratorSublayersStatsCounts(t *testing.T) {
 		"query|errors|env:none,resource:resource6,service:A3":                                             0,
 		"nested_op|errors|env:none,resource:resource1,service:A1":                                         0,
 	}
-	countsEq(assert, expectedCountValByKey, receivedCounts)
+	countValsEq(t, expectedCountValByKey, receivedCounts)
 }
 
-func TestConcentrator_AddNow(t *testing.T) {
-	assert := assert.New(t)
+func TestConcentratorAddNow(t *testing.T) {
 	now := time.Now().UnixNano()
 
 	t.Run("only top-level root span", func(t *testing.T) {
@@ -494,7 +543,7 @@ func TestConcentrator_AddNow(t *testing.T) {
 		}
 		// skip ahead to first possible flush
 		stats := c.flushNow(now + (int64(c.bufferLen) * testBucketInterval))
-		countsEq(assert, expected, stats[0].Counts)
+		countValsEq(t, expected, stats[0].Counts)
 	})
 
 	t.Run("top-level root span also marked as measured", func(t *testing.T) {
@@ -518,7 +567,7 @@ func TestConcentrator_AddNow(t *testing.T) {
 		}
 		// skip ahead to first possible flush
 		stats := c.flushNow(now + (int64(c.bufferLen) * testBucketInterval))
-		countsEq(assert, expected, stats[0].Counts)
+		countValsEq(t, expected, stats[0].Counts)
 	})
 
 	t.Run("top-level span, measured span, unmarked span", func(t *testing.T) {
@@ -546,6 +595,6 @@ func TestConcentrator_AddNow(t *testing.T) {
 		}
 		// skip ahead to first possible flush
 		stats := c.flushNow(now + (int64(c.bufferLen) * testBucketInterval))
-		countsEq(assert, expected, stats[0].Counts)
+		countValsEq(t, expected, stats[0].Counts)
 	})
 }
