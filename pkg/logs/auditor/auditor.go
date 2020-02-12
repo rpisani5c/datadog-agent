@@ -68,15 +68,18 @@ func New(runPath string, health *health.Handle) *Auditor {
 
 // Start starts the Auditor
 func (a *Auditor) Start() {
+	a.mu.Lock()
 	a.inputChan = make(chan *message.Message, config.ChanSize)
 	a.done = make(chan struct{})
 	a.registry = a.recoverRegistry()
+	a.mu.Unlock()
 	a.cleanupRegistry()
 	go a.run()
 }
 
 // Stop stops the Auditor
 func (a *Auditor) Stop() {
+	a.mu.Lock()
 	if a.inputChan != nil {
 		close(a.inputChan)
 	}
@@ -86,6 +89,7 @@ func (a *Auditor) Stop() {
 		a.done = nil
 	}
 	a.inputChan = nil
+	a.mu.Unlock()
 
 	a.cleanupRegistry()
 	err := a.flushRegistry()
